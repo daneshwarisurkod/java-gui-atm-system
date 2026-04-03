@@ -1,2 +1,290 @@
 2004 2005 daneshwari 2000
 1001 1234 user1 5000
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.io.*;
+import java.util.*;
+import java.text.SimpleDateFormat;
+
+class Account {
+    int accNo;
+    int pin;
+    String name;
+    double balance;
+    ArrayList<String> history = new ArrayList<>();
+
+    Account(int accNo,int pin,String name,double balance){
+        this.accNo=accNo;
+        this.pin=pin;
+        this.name=name;
+        this.balance=balance;
+    }
+}
+
+public class ATMGUI {
+
+    static ArrayList<Account> accounts = new ArrayList<>();
+    static final String FILE="accounts.txt";
+
+    static String now(){
+        return new SimpleDateFormat("dd-MM-yyyy HH:mm").format(new Date());
+    }
+
+    // UPDATED loadAccounts
+    static void loadAccounts(){
+        try{
+            BufferedReader br = new BufferedReader(new FileReader(FILE));
+            String line;
+
+            while((line = br.readLine()) != null){
+                String[] p = line.split(" ");
+                accounts.add(new Account(
+                    Integer.parseInt(p[0]),
+                    Integer.parseInt(p[1]),
+                    p[2],
+                    Double.parseDouble(p[3])
+                ));
+            }
+            br.close();
+        }catch(Exception e){}
+    }
+
+    static void saveAccounts(){
+        try{
+            PrintWriter pw=new PrintWriter(FILE);
+            for(Account a:accounts){
+                pw.println(a.accNo+" "+a.pin+" "+a.name+" "+a.balance);
+            }
+            pw.close();
+        }catch(Exception e){}
+    }
+
+    static void receipt(Account user,String type,double amt){
+        String r="Account: "+user.accNo+
+                "\nName: "+user.name+
+                "\nType: "+type+
+                "\nAmount: "+amt+
+                "\nBalance: "+user.balance+
+                "\nDate: "+now();
+
+        JOptionPane.showMessageDialog(null,r);
+    }
+
+    public static void main(String[] args){
+
+        loadAccounts();
+
+        JFrame login=new JFrame("JAVA BANK ATM");
+        login.setSize(350,400);
+        login.setLayout(new GridLayout(9,1));
+        login.setLocationRelativeTo(null);
+
+        JTextField acc=new JTextField();
+        JPasswordField pin=new JPasswordField();
+
+        JButton loginBtn=new JButton("🔐 Login");
+        JButton createBtn=new JButton("➕ Create Account");
+        JButton deleteBtn=new JButton("❌ Delete Account");
+
+        login.add(new JLabel("Account Number"));
+        login.add(acc);
+        login.add(new JLabel("PIN"));
+        login.add(pin);
+        login.add(loginBtn);
+        login.add(createBtn);
+        login.add(deleteBtn);
+
+        login.setVisible(true);
+
+        createBtn.addActionListener(e->{
+            String a=JOptionPane.showInputDialog("Account No");
+            String p=JOptionPane.showInputDialog("PIN");
+            String n=JOptionPane.showInputDialog("Name");
+            String b=JOptionPane.showInputDialog("Balance");
+
+            if(a==null||p==null||n==null||b==null) return;
+
+            accounts.add(new Account(
+                    Integer.parseInt(a),
+                    Integer.parseInt(p),
+                    n,
+                    Double.parseDouble(b)
+            ));
+            saveAccounts();
+        });
+
+        deleteBtn.addActionListener(e->{
+            String a=JOptionPane.showInputDialog("Account to delete");
+            if(a==null) return;
+
+            accounts.removeIf(x->x.accNo==Integer.parseInt(a));
+            saveAccounts();
+        });
+
+        loginBtn.addActionListener(e->{
+
+            int a=Integer.parseInt(acc.getText());
+            int p=Integer.parseInt(new String(pin.getPassword()));
+
+            final Account[] user={null};
+
+            for(Account x:accounts){
+                if(x.accNo==a && x.pin==p){
+                    user[0]=x;
+                    break;
+                }
+            }
+
+            if(user[0]==null){
+                JOptionPane.showMessageDialog(login,"Invalid login");
+                return;
+            }
+
+            login.dispose();
+
+            JFrame atm=new JFrame("Welcome "+user[0].name);
+            atm.setSize(420,600);
+            atm.setLayout(new GridLayout(10,1));
+            atm.setLocationRelativeTo(null);
+
+            javax.swing.Timer logoutTimer = new javax.swing.Timer(60000, ev -> {
+                JOptionPane.showMessageDialog(atm,"Session expired");
+                atm.dispose();
+            });
+            logoutTimer.setRepeats(false);
+            logoutTimer.start();
+
+            JButton deposit=new JButton("💰 Deposit");
+            JButton withdraw=new JButton("💸 Withdraw");
+            JButton transfer=new JButton("🔁 Transfer");
+            JButton fast=new JButton("⚡ Fast ₹1000");
+            JButton mini=new JButton("📜 Mini Statement");
+            JButton export=new JButton("🧾 Export Statement");
+            JButton changePin=new JButton("🔑 Change PIN");
+            JButton balance=new JButton("📊 Balance");
+            JButton exit=new JButton("🚪 Exit");
+
+            atm.add(deposit);
+            atm.add(withdraw);
+            atm.add(transfer);
+            atm.add(fast);
+            atm.add(mini);
+            atm.add(export);
+            atm.add(changePin);
+            atm.add(balance);
+            atm.add(exit);
+
+            atm.setVisible(true);
+
+            // UPDATED deposit
+            deposit.addActionListener(ev->{
+                logoutTimer.restart();
+                String input=JOptionPane.showInputDialog("Amount");
+                if(input==null) return;
+                double amt=Double.parseDouble(input);
+                user[0].balance+=amt;
+                user[0].history.add(now()+" - Deposit ₹"+amt);
+                saveAccounts();
+                receipt(user[0],"Deposit",amt);
+            });
+
+            // UPDATED withdraw
+            withdraw.addActionListener(ev->{
+                logoutTimer.restart();
+                String input=JOptionPane.showInputDialog("Amount");
+                if(input==null) return;
+                double amt=Double.parseDouble(input);
+
+                if(amt>user[0].balance){
+                    JOptionPane.showMessageDialog(atm,"Insufficient balance");
+                    return;
+                }
+
+                user[0].balance-=amt;
+                user[0].history.add(now()+" - Withdraw ₹"+amt);
+                saveAccounts();
+                receipt(user[0],"Withdraw",amt);
+            });
+
+            // UPDATED transfer
+            transfer.addActionListener(ev->{
+                logoutTimer.restart();
+                String t=JOptionPane.showInputDialog("Target account");
+                String a2=JOptionPane.showInputDialog("Amount");
+                if(t==null||a2==null) return;
+
+                int target=Integer.parseInt(t);
+                double amt=Double.parseDouble(a2);
+
+                if(amt>user[0].balance){
+                    JOptionPane.showMessageDialog(atm,"Insufficient balance");
+                    return;
+                }
+
+                for(Account x:accounts){
+                    if(x.accNo==target){
+                        user[0].balance-=amt;
+                        x.balance+=amt;
+                        user[0].history.add(now()+" - Transfer ₹"+amt+" to "+target);
+                        saveAccounts();
+                        receipt(user[0],"Transfer",amt);
+                        return;
+                    }
+                }
+
+                JOptionPane.showMessageDialog(atm,"Account not found");
+            });
+
+            // UPDATED fast cash
+            fast.addActionListener(ev->{
+                logoutTimer.restart();
+                double amt=1000;
+
+                if(amt>user[0].balance){
+                    JOptionPane.showMessageDialog(atm,"Insufficient balance");
+                    return;
+                }
+
+                user[0].balance-=amt;
+                user[0].history.add(now()+" - Fast Cash ₹1000");
+                saveAccounts();
+                receipt(user[0],"Fast Cash",amt);
+            });
+
+            mini.addActionListener(ev->{
+                logoutTimer.restart();
+                JTextArea area=new JTextArea();
+                for(String h:user[0].history)
+                    area.append(h+"\n");
+                JOptionPane.showMessageDialog(atm,new JScrollPane(area));
+            });
+
+            export.addActionListener(ev->{
+                logoutTimer.restart();
+                try{
+                    PrintWriter pw=new PrintWriter("statement.txt");
+                    for(String h:user[0].history)
+                        pw.println(h);
+                    pw.close();
+                }catch(Exception ex){}
+            });
+
+            changePin.addActionListener(ev->{
+                logoutTimer.restart();
+                String newPin=JOptionPane.showInputDialog("New PIN");
+                if(newPin==null) return;
+                user[0].pin=Integer.parseInt(newPin);
+                saveAccounts();
+            });
+
+            balance.addActionListener(ev->{
+                logoutTimer.restart();
+                JOptionPane.showMessageDialog(atm,
+                        "Balance: "+user[0].balance);
+            });
+
+            exit.addActionListener(ev->atm.dispose());
+        });
+    }
+}
